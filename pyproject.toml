@@ -1,0 +1,14 @@
+[project]
+name = "tts"
+version = "1.0.0"
+description = "Text-to-Speech desktop app"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "pyttsx3>=2.90",
+    "pyinstaller>=6.11.1",
+    "piper-tts>=1.4.1",
+]
+
+[project.scripts]
+tts-app = "main:main"

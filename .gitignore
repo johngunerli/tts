@@ -1,0 +1,25 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# macOS
+.DS_Store
+
+# Voice model files (large binaries — download separately, see README)
+audio-model/**/*.onnx
+audio-model/**/*.onnx.json
+
+# Test/scratch files
+*.mp3
+*.wav
+note.txt
+
+# uv lock (optional: commit this if you want reproducible installs)
+# uv.lock
