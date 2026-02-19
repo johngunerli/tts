@@ -1,0 +1,120 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - "v*"          # triggers on any tag like v1.0.0, v1.2.3, etc.
+
+permissions:
+  contents: write     # needed to create GitHub Releases and upload assets
+
+jobs:
+  # ──────────────────────────────────────────────
+  # macOS → Text-to-Speech.app (zipped)
+  # ──────────────────────────────────────────────
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Download voice model
+        run: |
+          mkdir -p audio-model/en_US
+          curl -L -o audio-model/en_US/en_US-amy-medium.onnx \
+            https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/amy/medium/en_US-amy-medium.onnx
+          curl -L -o audio-model/en_US/en_US-amy-medium.onnx.json \
+            https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/amy/medium/en_US-amy-medium.onnx.json
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Build .app
+        run: uv run pyinstaller tts_app.spec --clean --noconfirm
+
+      - name: Zip .app for distribution
+        run: |
+          cd dist
+          zip -r ../Text-to-Speech-macOS.zip "Text-to-Speech.app"
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-app
+          path: Text-to-Speech-macOS.zip
+
+  # ──────────────────────────────────────────────
+  # Windows → Text-to-Speech.exe (zipped)
+  # ──────────────────────────────────────────────
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Download voice model
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path audio-model/en_US
+          Invoke-WebRequest -Uri "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/amy/medium/en_US-amy-medium.onnx" `
+            -OutFile "audio-model/en_US/en_US-amy-medium.onnx"
+          Invoke-WebRequest -Uri "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/amy/medium/en_US-amy-medium.onnx.json" `
+            -OutFile "audio-model/en_US/en_US-amy-medium.onnx.json"
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Build .exe
+        run: uv run pyinstaller tts_app.spec --clean --noconfirm
+
+      - name: Zip .exe folder for distribution
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "dist/Text-to-Speech" -DestinationPath "Text-to-Speech-Windows.zip"
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-app
+          path: Text-to-Speech-Windows.zip
+
+  # ──────────────────────────────────────────────
+  # Create GitHub Release and attach both zips
+  # ──────────────────────────────────────────────
+  release:
+    needs: [build-macos, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-app
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-app
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Text-to-Speech ${{ github.ref_name }}"
+          body: |
+            ## Text-to-Speech ${{ github.ref_name }}
+
+            Offline, neural text-to-speech desktop app powered by Piper TTS.
+
+            ### Downloads
+            | Platform | File |
+            |----------|------|
+            | 🍎 macOS | `Text-to-Speech-macOS.zip` — unzip and drag `.app` to `/Applications` |
+            | 🪟 Windows | `Text-to-Speech-Windows.zip` — unzip and run `Text-to-Speech.exe` |
+
+            > Voice model (en_US-amy-medium) is bundled inside — no extra setup needed.
+          files: |
+            Text-to-Speech-macOS.zip
+            Text-to-Speech-Windows.zip
